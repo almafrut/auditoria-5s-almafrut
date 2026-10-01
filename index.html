@@ -22,8 +22,8 @@
                     <input type="date" id="fecha" class="w-full border rounded-lg p-2" required>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Trimestre</label>
-                    <input type="text" id="trimestre" class="w-full border rounded-lg p-2 bg-gray-100" readonly>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Trimestre que se audita</label>
+                    <select id="trimestre" class="w-full border rounded-lg p-2"></select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Auditor</label>
@@ -83,6 +83,7 @@
                     <h2 class="font-bold text-blue-700 text-lg">Acciones Correctivas</h2>
                     <button type="button" id="btnAddAccion" class="bg-blue-600 text-white text-sm px-3 py-1 rounded-lg">+ Añadir</button>
                 </div>
+                <p class="text-sm text-gray-600">Toda sub-zona con un <strong>0 o un 1</strong> necesita una acción: se crea sola al puntuar. Para el resto, usa "+ Acción" junto a la observación.</p>
                 <div id="accionesContainer" class="space-y-4"></div>
                 <p id="noAcciones" class="text-gray-400 text-sm text-center">Sin acciones correctivas</p>
             </section>
@@ -91,6 +92,8 @@
                 <h2 class="font-bold text-blue-700 text-lg mb-2">Observaciones</h2>
                 <textarea id="observaciones" class="w-full border rounded-lg p-2" rows="3" placeholder="Observaciones generales (opcional)"></textarea>
             </section>
+
+            <p id="faltan" class="hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3"></p>
 
             <button type="submit" id="btnEnviar" class="w-full bg-blue-700 text-white font-bold py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                 Enviar Auditoría
@@ -131,72 +134,132 @@ const CONFIG = { endpoint: "https://default4219abae8d5243a1b52a7bb8c1c61d.0d.env
 
 const ZONAS = [
   {
-    zona: "Nave de cartón", responsable: "Juan Baena", empresa: "ALMAFRUT",
+    zona: "Nave de cartón", responsable: "Juan Baena", email: "jbaena@almafrut.com", empresa: "ALMAFRUT",
     subzonas: ["Zonas Exteriores","Puertas y Muelles de Carga/Descarga","Pasillos de Circulación","Almacén de Planchas","Almacenaje Pallets","Máquina Montaje nº 1","Máquina Montaje nº 2","Máquina Montaje nº 3","Máquina Montaje nº 4","Máquina Montaje nº 5","Máquina Montaje nº 6","Almacén de Recambios, Herramientas y Otros","Oficina","Zona de Cola y Bigbags Plástico","Zona de Reparación Pallets","Pizarra 5S"]
   },
   {
-    zona: "Almacén envase y embalaje", responsable: "Alberto Rodríguez", empresa: "ALMAFRUT",
+    zona: "Almacén envase y embalaje", responsable: "Alberto Rodríguez", email: "arodriguez@almafrut.com", empresa: "ALMAFRUT",
     subzonas: ["Zona de Devoluciones y Materiales Obsoletos","Zona de Almacenaje Nave 2","Zona Carga Carretillas Eléctricas","Zona de Almacenaje Nave 1","Zona Gasoil","Zona Recepción-Expedición","Muelles y Zonas Exteriores","Oficina","Zona Almacén Productos Limpieza","Estanterías de Almacenaje","Pizarra 5S"]
   },
   {
-    zona: "Oficina Almafrut", responsable: "Enrique Rodríguez", empresa: "ALMAFRUT",
+    zona: "Oficina Almafrut", responsable: "Enrique Rodríguez", email: "enrique@almafrut.com", empresa: "ALMAFRUT",
     subzonas: ["Cuarto del Servidor","Despacho Emilio","Despacho Manolo Andújar","Despacho Enrique Padre e Hijo","Despacho Alberto y Nicolás","Despacho Alejandro, Trujillo, Baena y Rafa","Despacho Blas y Juan Basoa","Despacho Toni","Sala de Juntas","Sala de Formación","Cocina","Pasillos y Zonas Comunes","Pizarra 5S"]
   },
   {
-    zona: "Almacén recambios CERYS", responsable: "Sergio Doucet", empresa: "CERYS",
+    zona: "Almacén recambios CERYS", responsable: "Sergio Doucet", email: "sdoucet@almafrut.com", empresa: "CERYS",
     subzonas: ["Almacén Planta Baja (100)","Almacén Planta Alta (200)","Almacén de Tornillería y Electricidad","Almacén Laboratorio","Almacén Varios Lavadero","Almacén Ruedas y Baterías","Almacén Material \"Preparado para...\"","Almacén Material Puertas Nave Arriba","Pizarra 5S"]
   },
   {
-    zona: "Taller CERYS", responsable: "Ramón Mirón", empresa: "CERYS",
+    zona: "Taller CERYS", responsable: "Ramón Mirón", email: "rmiron@almafrut.com", empresa: "CERYS",
     subzonas: ["Zona de Carga Baterías","Zona de Prensa","Zona de Pinturas","Zona de Torno","Zona de Soldadura","Lavadero","Zona de Mástiles y Fregadoras","Zonas Expedición y Recepción","Paneles Herramientas","Servicios y Vestuarios","Zonas Parking Máquinas Taller","Zona Herramientas y Documentación Técnica","Explanada Exterior y Pintura (Común con INGRO)","Zona Máquinas Venta Nueva y Usada (Nave Arriba)","Zona Máquinas Alquiler (Nave Arriba)","Oficina","Pizarra 5S"]
   },
   {
-    zona: "Furgonetas CERYS", responsable: "Rotativo Mecánicos", empresa: "CERYS",
+    zona: "Furgonetas CERYS", responsable: "Rotativo Mecánicos", email: "", empresa: "CERYS",
+    // Responsable rotativo: uno por trimestre (lista 5S_Calendario)
+    porTrimestre: { Q1: ["Raúl Ruiz", "raulruiz@almafrut.com"], Q2: ["Julio Lara", "juliolara@almafrut.com"], Q3: ["Javier Trujillo", "jtrujillo@almafrut.com"], Q4: ["José Ruiz", "recambios@almafrut.com"] },
     subzonas: ["4300-FVR (Pulpi)","6444-NDN (Dionisio)","0979-HTS (Ángel Carrillo)","0599-JCR (Rafael)","8754-JKB (Javi Trujillo)","1441-JWG (Alexis)","8495-JWS (Ocaña)","8127-JXK (Álvaro)","1628-KLV (Paco Martín)","0869-KSX (Raúl Adolf.)","0991-KTX (José Manuel)","0568-KWB (Dionisio Antigua)","9133-LGH (Raúl Alo.)","9136-LGH (Santos)","9229-LKJ (Juan Luis Fer.)","0130-LMG (Juanjo)","2843-LVY (Juan Miguel)","8876-MPN (José Luis)","9825-MPN (Julio Lara)","3605-NLH (Javi Trujillo)","3631-NLH (Alexis)"]
   },
   {
-    zona: "Boxes CERYS", responsable: "Sergio Bueno", empresa: "CERYS",
+    zona: "Boxes CERYS", responsable: "Sergio Bueno", email: "joseluis@almafrut.com", empresa: "CERYS",
     subzonas: ["Box nº 1 (Diesel)","Box nº 2 (Diesel)","Box nº 3 (Eléctrico)","Box nº 4 (Eléctrico)","Box nº 5 (Eléctrico)","Box nº 6 (Eléctrico)","Box nº 7 (Eléctrico)","Box nº 8 (Eléctrico)","Box nº 9","Box nº 10 - Flejadoras (Nave Arriba)","Box nº 11 - Envasadoras (Nave Arriba)","Box nº 12 - Etiquetadoras (Nave Arriba)","Pizarra 5S"]
   },
   {
-    zona: "Oficinas INGRO", responsable: "Javier López", empresa: "INGRO",
+    zona: "Oficinas INGRO", responsable: "Javier López", email: "compras@ingromaquinaria.com", empresa: "INGRO",
     subzonas: ["Oficina Recepción","Oficina Jefe Taller","Oficina Administración","Oficina Técnica","Sala de Juntas","Servicios y Zonas Comunes Oficina","Comedor","Aseos","Pizarra 5S"]
   },
   {
-    zona: "Taller INGRO", responsable: "Carlos Moya", empresa: "INGRO",
+    zona: "Taller INGRO", responsable: "Carlos Moya", email: "ingenieria4@ingromaquinaria.com", empresa: "INGRO",
     subzonas: ["Zona Recepción y Expedición","Zona de Almacenaje y Corte de Tubos, Macizos y Perfiles","Zona de Tornos y Fresas","Taller Eléctrico","Zona Pintura y Patio Trasero (Común con CERYS)","Zona de Almacenaje y Corte de Chapa","Zona de Producción","Zonas Comunes","Pizarra 5S"]
   },
   {
-    zona: "Almacén recambios INGRO", responsable: "David", empresa: "INGRO",
+    zona: "Almacén recambios INGRO", responsable: "David García", email: "almacen@ingromaquinaria.com", empresa: "INGRO",
     subzonas: ["Almacén E-1","Almacén E-2 y E-3","Almacén E-4 y E-5","Almacén E-6 y E-7","Almacén E-8 y E-9","Almacén E-10 y E-11","Almacén E-12 y E-13","Almacén E-14 A-B","Almacén E-15","Almacén E-16 y E-17","Almacén E-18","Almacén E-19","Almacén E-20","Almacén E-21 y E-22","Zona P-01","Zona Recepción y Expedición","Oficina y Zonas Comunes","Almacén E-24","Pizarra 5S"]
   }
 ];
 
-let accionCount = 0;
 let lastPayload = null;
 let selectedZonaIndex = null;
+let fijado = { zona: false, trimestre: false };
 
 function init() {
     initFecha();
     initZonas();
-    document.getElementById("btnAddAccion").addEventListener("click", addAccion);
+    aplicarParametrosURL();
+    document.getElementById("btnAddAccion").addEventListener("click", () => addAccion());
     document.getElementById("auditForm").addEventListener("submit", handleSubmit);
     document.getElementById("btnReintentar").addEventListener("click", retrySend);
     document.getElementById("btnVolverForm").addEventListener("click", () => setState("form"));
     document.getElementById("auditor").addEventListener("input", validateForm);
+    validateForm();
+}
+
+// Trimestre: la auditoria de cada trimestre se hace en su ultimo mes (marzo, junio,
+// septiembre, diciembre). Fuera de ese mes lo normal es estar en el margen del
+// trimestre anterior, asi que se propone ese. Si llega en el enlace, va fijo.
+function opcionesTrimestre(dateStr) {
+    const d = new Date(dateStr);
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    const y = d.getFullYear();
+    const actual = "Q" + q + "-" + y;
+    const anterior = q === 1 ? "Q4-" + (y - 1) : "Q" + (q - 1) + "-" + y;
+    const ultimoMes = d.getMonth() % 3 === 2;
+    return { opciones: [anterior, actual], defecto: ultimoMes ? actual : anterior };
 }
 
 function initFecha() {
     const el = document.getElementById("fecha");
     el.value = new Date().toISOString().split("T")[0];
     updateTrimestre(el.value);
-    el.addEventListener("change", (e) => updateTrimestre(e.target.value));
+    el.addEventListener("change", (e) => { if (!fijado.trimestre) updateTrimestre(e.target.value); });
+    document.getElementById("trimestre").addEventListener("change", () => { refrescarResponsable(); });
 }
 
 function updateTrimestre(dateStr) {
-    const d = new Date(dateStr);
-    const q = Math.floor(d.getMonth() / 3) + 1;
-    document.getElementById("trimestre").value = "Q" + q + "-" + d.getFullYear();
+    const { opciones, defecto } = opcionesTrimestre(dateStr);
+    const sel = document.getElementById("trimestre");
+    sel.innerHTML = opciones.map(o => '<option value="' + o + '"' + (o === defecto ? " selected" : "") + '>' + o + '</option>').join("");
+    refrescarResponsable();
+}
+
+function aplicarParametrosURL() {
+    const p = new URLSearchParams(location.search);
+    const trim = p.get("trimestre");
+    if (trim && /^Q[1-4]-\d{4}$/.test(trim)) {
+        const sel = document.getElementById("trimestre");
+        sel.innerHTML = '<option value="' + trim + '">' + trim + '</option>';
+        sel.disabled = true;
+        fijado.trimestre = true;
+    }
+    const auditor = p.get("auditor");
+    if (auditor) document.getElementById("auditor").value = auditor;
+    const zona = p.get("zona");
+    if (zona) {
+        const i = ZONAS.findIndex(z => z.zona.toLowerCase() === zona.toLowerCase());
+        if (i >= 0) {
+            const sel = document.getElementById("zona");
+            sel.value = String(i);
+            sel.dispatchEvent(new Event("change"));
+            sel.disabled = true;
+            fijado.zona = true;
+        }
+    }
+}
+
+// Responsable de la zona; en Furgonetas depende del trimestre (rotativo)
+function responsableZona(z) {
+    if (z.porTrimestre) {
+        const q = (document.getElementById("trimestre").value || "").slice(0, 2);
+        const r = z.porTrimestre[q];
+        if (r) return { nombre: r[0], email: r[1] };
+    }
+    return { nombre: z.responsable, email: z.email || "" };
+}
+
+function refrescarResponsable() {
+    if (selectedZonaIndex === null) return;
+    const r = responsableZona(ZONAS[selectedZonaIndex]);
+    document.getElementById("responsable").value = r.nombre;
+    document.querySelectorAll(".accion-block").forEach(b => rellenarResponsables(b));
 }
 
 function initZonas() {
@@ -208,6 +271,8 @@ function initZonas() {
         sel.appendChild(opt);
     });
     sel.addEventListener("change", () => {
+        document.getElementById("accionesContainer").innerHTML = "";
+        document.getElementById("noAcciones").classList.remove("hidden");
         if (sel.value === "") {
             document.getElementById("responsable").value = "";
             document.getElementById("empresa").value = "";
@@ -217,11 +282,10 @@ function initZonas() {
         } else {
             selectedZonaIndex = parseInt(sel.value);
             const z = ZONAS[selectedZonaIndex];
-            document.getElementById("responsable").value = z.responsable;
             document.getElementById("empresa").value = z.empresa;
+            refrescarResponsable();
             renderSubzonas(z.subzonas);
             document.getElementById("resumenContainer").classList.remove("hidden");
-            updateAccionesSubzonaSelects();
         }
         updateScores();
         validateForm();
@@ -232,7 +296,8 @@ function renderSubzonas(subzonas) {
     const container = document.getElementById("subzonasContainer");
     const section = document.createElement("section");
     section.className = "bg-white rounded-lg shadow p-4 space-y-1";
-    section.innerHTML = '<h2 class="font-bold text-blue-700 text-lg mb-3">Sub-zonas (' + subzonas.length + ')</h2>';
+    section.innerHTML = '<h2 class="font-bold text-blue-700 text-lg mb-1">Sub-zonas (' + subzonas.length + ')</h2>' +
+        '<p class="text-xs text-gray-500 mb-3">0 = Desastre · 1 = Mal (3 o más observaciones) · 2 = Bien (1-2 observaciones) · 3 = Perfecto</p>';
 
     const table = document.createElement("div");
     table.className = "space-y-3";
@@ -240,7 +305,8 @@ function renderSubzonas(subzonas) {
     subzonas.forEach((nombre, i) => {
         const idx = i + 1;
         const row = document.createElement("div");
-        row.className = "border rounded-lg p-3 space-y-2";
+        row.className = "border rounded-lg p-3 space-y-2 sz-row";
+        row.dataset.idx = idx;
         row.innerHTML =
             '<div class="font-medium text-sm text-gray-800">' + idx + '. ' + escapeHtml(nombre) + '</div>' +
             '<div class="grid grid-cols-4 gap-2">' +
@@ -249,7 +315,10 @@ function renderSubzonas(subzonas) {
                 buildSelect("z" + idx + "_l", "L") +
                 buildSelect("z" + idx + "_s", "S") +
             '</div>' +
-            '<input type="text" class="w-full border rounded p-1.5 text-sm sz-obs" data-idx="' + idx + '" placeholder="Observación (opcional)">';
+            '<div class="flex gap-2">' +
+                '<input type="text" class="flex-1 min-w-0 border rounded p-1.5 text-sm sz-obs" data-idx="' + idx + '" placeholder="Observación (opcional)">' +
+                '<button type="button" class="text-blue-700 text-sm whitespace-nowrap btn-sz-accion" data-idx="' + idx + '">+ Acción</button>' +
+            '</div>';
         table.appendChild(row);
     });
 
@@ -257,10 +326,16 @@ function renderSubzonas(subzonas) {
     container.innerHTML = "";
     container.appendChild(section);
 
-    container.addEventListener("change", () => {
+    section.addEventListener("change", () => {
         updateScores();
+        sincronizarAccionesObligatorias();
         validateForm();
     });
+    section.querySelectorAll(".btn-sz-accion").forEach(b => b.addEventListener("click", () => {
+        const idx = parseInt(b.dataset.idx);
+        const obs = document.querySelector('.sz-obs[data-idx="' + idx + '"]').value.trim();
+        addAccion({ idx: idx, desc: obs, s: peorS(idx) });
+    }));
 }
 
 function buildSelect(id, label) {
@@ -288,14 +363,10 @@ function updateScores() {
     let totE = 0, totO = 0, totL = 0, totS = 0;
 
     for (let i = 1; i <= n; i++) {
-        const e = getVal("z" + i + "_e");
-        const o = getVal("z" + i + "_o");
-        const l = getVal("z" + i + "_l");
-        const s = getVal("z" + i + "_s");
-        totE += e;
-        totO += o;
-        totL += l;
-        totS += s;
+        totE += getVal("z" + i + "_e");
+        totO += getVal("z" + i + "_o");
+        totL += getVal("z" + i + "_l");
+        totS += getVal("z" + i + "_s");
     }
 
     document.getElementById("subtotalE").textContent = totE;
@@ -322,28 +393,103 @@ function getVal(id) {
     return el && el.value !== "" ? parseInt(el.value) : 0;
 }
 
-function addAccion() {
-    if (accionCount >= 5) return;
-    accionCount++;
+// ---- Acciones correctivas ----
+
+// Sub-zonas con alguna nota 0 o 1: obligan a crear una accion
+function subzonasCriticas() {
+    const res = [];
+    if (selectedZonaIndex === null) return res;
+    const n = ZONAS[selectedZonaIndex].subzonas.length;
+    for (let i = 1; i <= n; i++) {
+        const notas = ["e", "o", "l", "s"].map(c => document.getElementById("z" + i + "_" + c).value);
+        if (notas.some(v => v !== "" && parseInt(v) <= 1)) res.push(i);
+    }
+    return res;
+}
+
+// La S con la nota mas baja de una sub-zona (para proponerla en la accion)
+function peorS(idx) {
+    let peor = null, min = 4;
+    ["e", "o", "l", "s"].forEach(c => {
+        const v = document.getElementById("z" + idx + "_" + c).value;
+        if (v !== "" && parseInt(v) < min) { min = parseInt(v); peor = c.toUpperCase(); }
+    });
+    return peor || "E";
+}
+
+function nombreSubzona(idx) { return ZONAS[selectedZonaIndex].subzonas[idx - 1]; }
+
+function sincronizarAccionesObligatorias() {
+    const criticas = subzonasCriticas();
+    // Las automaticas que dejan de ser criticas y siguen vacias se quitan; el resto se marca
+    document.querySelectorAll(".accion-block").forEach(b => {
+        const idx = parseInt(b.dataset.idx || "0");
+        if (b.dataset.auto === "1" && !criticas.includes(idx) && !b.querySelector(".accion-desc").value.trim()) {
+            b.remove();
+            return;
+        }
+        marcarObligatoria(b, b.dataset.auto === "1" && criticas.includes(idx));
+    });
+    // Crear la accion de cada sub-zona critica que aun no tenga ninguna
+    criticas.forEach(idx => {
+        const tiene = [...document.querySelectorAll(".accion-block")].some(b => b.querySelector(".accion-subzona").value === nombreSubzona(idx));
+        if (!tiene) {
+            const obs = document.querySelector('.sz-obs[data-idx="' + idx + '"]').value.trim();
+            addAccion({ idx: idx, desc: obs, s: peorS(idx), auto: true });
+        }
+    });
+    if (!document.querySelector(".accion-block")) document.getElementById("noAcciones").classList.remove("hidden");
+    renumberAcciones();
+}
+
+function marcarObligatoria(block, si) {
+    block.querySelector(".btn-remove").classList.toggle("hidden", si);
+    block.querySelector(".badge-oblig").classList.toggle("hidden", !si);
+    block.querySelector(".accion-subzona").disabled = si;
+    block.classList.toggle("border-red-300", si);
+}
+
+function fechaMas30() {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split("T")[0];
+}
+
+function rellenarResponsables(block) {
+    if (selectedZonaIndex === null) return;
+    const r = responsableZona(ZONAS[selectedZonaIndex]);
+    const sel = block.querySelector(".accion-resp");
+    const actual = sel.value;
+    sel.innerHTML =
+        '<option value="zona">' + escapeHtml(r.nombre) + ' (responsable de la zona)</option>' +
+        '<option value="otra">Otra persona…</option>';
+    sel.value = actual === "otra" ? "otra" : "zona";
+}
+
+function addAccion(opts) {
+    opts = opts || {};
+    if (selectedZonaIndex === null) { alert("Selecciona primero la zona."); return; }
     document.getElementById("noAcciones").classList.add("hidden");
 
-    const subzonaOptions = buildSubzonaOptions();
     const container = document.getElementById("accionesContainer");
     const div = document.createElement("div");
     div.className = "border rounded-lg p-3 space-y-3 accion-block";
+    if (opts.idx) div.dataset.idx = opts.idx;
+    if (opts.auto) div.dataset.auto = "1";
     div.innerHTML =
         '<div class="flex items-center justify-between">' +
-            '<span class="font-medium text-sm accion-label">Acción ' + accionCount + '</span>' +
+            '<span class="font-medium text-sm"><span class="accion-label">Acción</span> ' +
+                '<span class="badge-oblig hidden text-xs bg-red-100 text-red-700 rounded px-1.5 py-0.5 ml-1">obligatoria (nota 0-1)</span></span>' +
             '<button type="button" class="text-red-500 text-sm btn-remove">Eliminar</button>' +
         '</div>' +
         '<div>' +
-            '<label class="block text-sm text-gray-600 mb-1">Descripción</label>' +
+            '<label class="block text-sm text-gray-600 mb-1">Qué hay que hacer</label>' +
             '<input type="text" class="w-full border rounded-lg p-2 accion-desc" placeholder="Descripción de la acción">' +
         '</div>' +
         '<div class="grid grid-cols-2 gap-3">' +
             '<div>' +
                 '<label class="block text-sm text-gray-600 mb-1">Sub-zona afectada</label>' +
-                '<select class="w-full border rounded-lg p-2 accion-subzona">' + subzonaOptions + '</select>' +
+                '<select class="w-full border rounded-lg p-2 accion-subzona">' + buildSubzonaOptions() + '</select>' +
             '</div>' +
             '<div>' +
                 '<label class="block text-sm text-gray-600 mb-1">S afectada</label>' +
@@ -358,29 +504,41 @@ function addAccion() {
         '<div class="grid grid-cols-2 gap-3">' +
             '<div>' +
                 '<label class="block text-sm text-gray-600 mb-1">Responsable</label>' +
-                '<input type="text" class="w-full border rounded-lg p-2 accion-resp" placeholder="Nombre">' +
+                '<select class="w-full border rounded-lg p-2 accion-resp"></select>' +
             '</div>' +
             '<div>' +
                 '<label class="block text-sm text-gray-600 mb-1">Fecha compromiso</label>' +
                 '<input type="date" class="w-full border rounded-lg p-2 accion-fecha">' +
             '</div>' +
+        '</div>' +
+        '<div class="grid grid-cols-2 gap-3 hidden accion-otra">' +
+            '<input type="text" class="w-full border rounded-lg p-2 accion-otra-nombre" placeholder="Nombre y apellidos">' +
+            '<input type="email" class="w-full border rounded-lg p-2 accion-otra-email" placeholder="Correo (si tiene)">' +
         '</div>';
 
     container.appendChild(div);
+    rellenarResponsables(div);
+    div.querySelector(".accion-fecha").value = fechaMas30();
+    if (opts.idx) div.querySelector(".accion-subzona").value = nombreSubzona(opts.idx);
+    if (opts.s) div.querySelector(".accion-s").value = opts.s;
+    if (opts.desc) div.querySelector(".accion-desc").value = opts.desc;
 
-    div.querySelector(".btn-remove").addEventListener("click", () => {
-        div.remove();
-        accionCount--;
-        renumberAcciones();
-        if (accionCount === 0) document.getElementById("noAcciones").classList.remove("hidden");
-        if (accionCount < 5) document.getElementById("btnAddAccion").disabled = false;
+    div.querySelector(".accion-resp").addEventListener("change", (e) => {
+        div.querySelector(".accion-otra").classList.toggle("hidden", e.target.value !== "otra");
         validateForm();
     });
-
+    div.querySelector(".btn-remove").addEventListener("click", () => {
+        div.remove();
+        renumberAcciones();
+        if (!document.querySelector(".accion-block")) document.getElementById("noAcciones").classList.remove("hidden");
+        validateForm();
+    });
     div.querySelectorAll("input, select").forEach(el => el.addEventListener("input", validateForm));
 
-    if (accionCount >= 5) document.getElementById("btnAddAccion").disabled = true;
+    marcarObligatoria(div, !!opts.auto);
+    renumberAcciones();
     validateForm();
+    if (!opts.auto) div.querySelector(".accion-desc").focus();
 }
 
 function buildSubzonaOptions() {
@@ -389,47 +547,53 @@ function buildSubzonaOptions() {
     return subzonas.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join("");
 }
 
-function updateAccionesSubzonaSelects() {
-    const options = buildSubzonaOptions();
-    document.querySelectorAll(".accion-subzona").forEach(sel => {
-        sel.innerHTML = options;
-    });
-}
-
 function renumberAcciones() {
     document.querySelectorAll(".accion-block").forEach((block, i) => {
         block.querySelector(".accion-label").textContent = "Acción " + (i + 1);
     });
 }
 
+function responsableAccion(block) {
+    if (block.querySelector(".accion-resp").value === "otra") {
+        return {
+            nombre: block.querySelector(".accion-otra-nombre").value.trim(),
+            email: block.querySelector(".accion-otra-email").value.trim()
+        };
+    }
+    return responsableZona(ZONAS[selectedZonaIndex]);
+}
+
 function validateForm() {
+    const faltan = [];
     const auditor = document.getElementById("auditor").value.trim();
     const zona = document.getElementById("zona").value;
+    if (!auditor) faltan.push("tu nombre (auditor)");
+    if (zona === "") faltan.push("la zona");
 
-    if (!auditor || zona === "") {
-        document.getElementById("btnEnviar").disabled = true;
-        return;
-    }
-
-    const n = ZONAS[parseInt(zona)].subzonas.length;
-    let allScored = true;
-    for (let i = 1; i <= n; i++) {
-        if (document.getElementById("z" + i + "_e").value === "" ||
-            document.getElementById("z" + i + "_o").value === "" ||
-            document.getElementById("z" + i + "_l").value === "" ||
-            document.getElementById("z" + i + "_s").value === "") {
-            allScored = false;
-            break;
+    if (zona !== "") {
+        const n = ZONAS[parseInt(zona)].subzonas.length;
+        let sinNota = 0;
+        for (let i = 1; i <= n; i++) {
+            if (["e", "o", "l", "s"].some(c => document.getElementById("z" + i + "_" + c).value === "")) sinNota++;
         }
+        if (sinNota) faltan.push("puntuar " + sinNota + " sub-zona" + (sinNota > 1 ? "s" : ""));
+
+        const conAccion = new Set();
+        let incompletas = 0;
+        document.querySelectorAll(".accion-block").forEach(block => {
+            const r = responsableAccion(block);
+            if (!block.querySelector(".accion-desc").value.trim() || !block.querySelector(".accion-fecha").value || !r.nombre) incompletas++;
+            else conAccion.add(block.querySelector(".accion-subzona").value);
+        });
+        if (incompletas) faltan.push("completar " + incompletas + " acción" + (incompletas > 1 ? "es" : "") + " (qué hay que hacer, responsable y fecha)");
+        const sinAccion = subzonasCriticas().filter(i => !conAccion.has(nombreSubzona(i))).map(nombreSubzona);
+        if (sinAccion.length) faltan.push("una acción para: " + sinAccion.join(", "));
     }
 
-    let accionesOk = true;
-    document.querySelectorAll(".accion-block").forEach(block => {
-        if (!block.querySelector(".accion-desc").value.trim()) accionesOk = false;
-        if (!block.querySelector(".accion-fecha").value) accionesOk = false;
-    });
-
-    document.getElementById("btnEnviar").disabled = !(allScored && accionesOk);
+    const box = document.getElementById("faltan");
+    box.classList.toggle("hidden", faltan.length === 0);
+    box.textContent = faltan.length ? "Para enviar falta: " + faltan.join("; ") + "." : "";
+    document.getElementById("btnEnviar").disabled = faltan.length > 0;
 }
 
 function buildPayload() {
@@ -442,9 +606,10 @@ function buildPayload() {
         trimestre: document.getElementById("trimestre").value,
         auditor: document.getElementById("auditor").value.trim(),
         zona: z.zona,
-        responsableArea: z.responsable,
+        responsableArea: responsableZona(z).nombre,
         empresa: z.empresa,
-        numZonas: n
+        numZonas: n,
+        versionFormulario: 2
     };
 
     let totE = 0, totO = 0, totL = 0, totS = 0;
@@ -473,11 +638,14 @@ function buildPayload() {
 
     const acciones = [];
     document.querySelectorAll(".accion-block").forEach(block => {
+        const r = responsableAccion(block);
         acciones.push({
             descripcion: block.querySelector(".accion-desc").value.trim(),
             subzonaAfectada: block.querySelector(".accion-subzona").value,
             sAfectada: block.querySelector(".accion-s").value,
-            responsable: block.querySelector(".accion-resp").value.trim(),
+            // "Nombre <correo>": la lista guarda texto; n8n saca el correo para avisar
+            responsable: r.email ? r.nombre + " <" + r.email + ">" : r.nombre,
+            responsableEmail: r.email,
             fechaCompromiso: block.querySelector(".accion-fecha").value
         });
     });
